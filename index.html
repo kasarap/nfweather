@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Weather Station</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161921;
+    --surface2: #1e2230;
+    --border: rgba(255,255,255,0.07);
+    --text: #f0f2f7;
+    --muted: #6b7280;
+    --accent: #4fffb0;
+    --accent2: #38bdf8;
+    --warn: #fb923c;
+    --rain: #818cf8;
+    --card-r: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top, 16px);
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    overflow-x: hidden;
+  }
+
+  .header {
+    padding: 16px 20px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-left h1 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .header-left .updated {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .refresh-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--accent);
+    -webkit-user-select: none;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .refresh-btn:active { background: #2a2f3e; }
+  .refresh-btn.spinning svg { animation: spin 0.65s ease-in-out; }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .page { padding: 0 14px 48px; }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+
+  .hero {
+    background: var(--surface);
+    border-radius: var(--card-r);
+    padding: 22px 20px 18px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50px; right: -50px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(79,255,176,0.09) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .hero-temp {
+    font-size: 78px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -3px;
+  }
+  .hero-temp sup {
+    font-size: 28px;
+    vertical-align: super;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .hero-sub { padding-bottom: 6px; }
+  .hero-sub .feels {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .hero-sub .feels span { color: var(--text); }
+
+  .hero-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .meta-item .mlabel {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .meta-item .mval {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .card {
+    background: var(--surface);
+    border-radius: var(--card-r);
+    padding: 18px 18px 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 10px;
+  }
+
+  .stat-item .slabel {
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .stat-item .sval {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .sunit { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .c-accent2 { color: var(--accent2) !important; }
+  .c-warn    { color: var(--warn) !important; }
+  .c-rain    { color: var(--rain) !important; }
+
+  .dir-badge {
+    display: inline-block;
+    background: rgba(56,189,248,0.12);
+    border: 1px solid rgba(56,189,248,0.25);
+    border-radius: 7px;
+    padding: 1px 7px;
+    font-size: 13px;
+    color: var(--accent2);
+    margin-left: 6px;
+    vertical-align: middle;
+    line-height: 1.5;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 120px;
+    margin-top: 4px;
+  }
+  canvas { display: block; }
+
+  .chart-x-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 0 36px 0 36px;
+  }
+  .chart-x-labels span {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(13,15,20,0.8);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .loading-overlay.show { opacity: 1; pointer-events: all; }
+  .loader-ring {
+    width: 38px; height: 38px;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .error-bar {
+    background: rgba(251,146,60,0.1);
+    border: 1px solid rgba(251,146,60,0.25);
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--warn);
+    margin-bottom: 10px;
+    display: none;
+  }
+  .error-bar.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loader"><div class="loader-ring"></div></div>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Weather Station</h1>
+    <div class="updated" id="updatedTime">Loading…</div>
+  </div>
+  <button class="refresh-btn" id="refreshBtn" onclick="fetchData()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M23 4v6h-6"/>
+      <path d="M1 20v-6h6"/>
+      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+    </svg>
+  </button>
+</div>
+
+<div class="page">
+  <div class="error-bar" id="errorBar">Unable to reach API.</div>
+
+  <!-- OUTDOOR -->
+  <div class="hero">
+    <div class="section-label">Outdoor</div>
+    <div class="hero-row">
+      <div class="hero-temp" id="outTemp">—<sup>°F</sup></div>
+      <div class="hero-sub">
+        <div class="feels">Feels like <span id="outFeels">—</span></div>
+        <div class="feels">Dew point <span id="outDew">—</span></div>
+      </div>
+    </div>
+    <div class="hero-meta">
+      <div class="meta-item">
+        <div class="mlabel">Humidity</div>
+        <div class="mval" id="outHumidity">—</div>
+      </div>
+      <div class="meta-item">
+        <div class="mlabel">UV Index</div>
+        <div class="mval" id="outUV">—</div>
+      </div>
+      <div class="meta-item">
+        <div class="mlabel">Solar W/m²</div>
+        <div class="mval" id="outSolar">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEMP CHART -->
+  <div class="card">
+    <div class="section-label">Outdoor Temp · 8 hrs</div>
+    <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+    <div class="chart-x-labels" id="tempXLabels"></div>
+  </div>
+
+  <!-- WIND -->
+  <div class="card">
+    <div class="section-label">Wind</div>
+    <div class="stat-grid">
+      <div class="stat-item">
+        <div class="slabel">Speed</div>
+        <div class="sval c-accent2" id="windSpeed">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Gust</div>
+        <div class="sval c-warn" id="windGust">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Max Gust (8h)</div>
+        <div class="sval" id="windMaxGust">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Direction</div>
+        <div class="sval" id="windDir">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIND CHART -->
+  <div class="card">
+    <div class="section-label">Wind Speed · 8 hrs</div>
+    <div class="chart-wrap"><canvas id="windChart"></canvas></div>
+    <div class="chart-x-labels" id="windXLabels"></div>
+  </div>
+
+  <!-- RAINFALL -->
+  <div class="card">
+    <div class="section-label">Rainfall</div>
+    <div class="stat-grid">
+      <div class="stat-item">
+        <div class="slabel">Rate</div>
+        <div class="sval c-rain" id="rainRate">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Daily</div>
+        <div class="sval" id="rainDaily">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Weekly</div>
+        <div class="sval" id="rainWeekly">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Monthly</div>
+        <div class="sval" id="rainMonthly">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INDOOR -->
+  <div class="card">
+    <div class="section-label">Indoor</div>
+    <div class="stat-grid">
+      <div class="stat-item">
+        <div class="slabel">Temperature</div>
+        <div class="sval" id="inTemp">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Humidity</div>
+        <div class="sval" id="inHumidity">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Dew Point</div>
+        <div class="sval" id="inDew">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Feels Like</div>
+        <div class="sval" id="inFeels">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function degToCompass(d) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+                'S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round((d ?? 0) / 22.5) % 16];
+}
+const fmt  = (v, d=1) => v != null ? Number(v).toFixed(d) : '—';
+const el   = id => document.getElementById(id);
+const html = (id, h) => { const e = el(id); if(e) e.innerHTML = h; };
+
+function showLoader(on) { el('loader').classList.toggle('show', on); }
+function showError(on)  { el('errorBar').classList.toggle('show', on); }
+function spinBtn() {
+  const btn = el('refreshBtn');
+  btn.classList.add('spinning');
+  setTimeout(() => btn.classList.remove('spinning'), 700);
+}
+function timestamp() {
+  el('updatedTime').textContent =
+    'Updated ' + new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+}
+
+function populateCurrent(d) {
+  html('outTemp',    `${fmt(d.tempf)}<sup>°F</sup>`);
+  html('outFeels',   `${fmt(d.feelsLike)}°F`);
+  html('outDew',     `${fmt(d.dewPoint)}°F`);
+  html('outHumidity',`${d.humidity ?? '—'}%`);
+  html('outUV',      d.uv ?? '—');
+  html('outSolar',   fmt(d.solarradiation, 0));
+  html('windSpeed',  `${fmt(d.windspeedmph)} <span class="sunit">mph</span>`);
+  html('windGust',   `${fmt(d.windgustmph)} <span class="sunit">mph</span>`);
+  const cmp = degToCompass(d.winddir);
+  html('windDir',    `${fmt(d.winddir,0)}° <span class="dir-badge">${cmp}</span>`);
+  html('rainRate',   `${fmt(d.hourlyrainin,2)} <span class="sunit">in/hr</span>`);
+  html('rainDaily',  `${fmt(d.dailyrainin,2)} <span class="sunit">in</span>`);
+  html('rainWeekly', `${fmt(d.weeklyrainin,2)} <span class="sunit">in</span>`);
+  html('rainMonthly',`${fmt(d.monthlyrainin,2)} <span class="sunit">in</span>`);
+  html('inTemp',     `${fmt(d.tempinf)} <span class="sunit">°F</span>`);
+  html('inHumidity', `${d.humidityin ?? '—'}<span class="sunit">%</span>`);
+  html('inDew',      `${fmt(d.dewPointin)} <span class="sunit">°F</span>`);
+  html('inFeels',    `${fmt(d.feelsLikein)} <span class="sunit">°F</span>`);
+}
+
+let lastHistory = [];
+
+function populateHistory(data) {
+  const chron = [...data].reverse();
+  const tPts = chron.map(d => ({ t: d.dateutc, v: +d.tempf }));
+  const wPts = chron.map(d => ({ t: d.dateutc, v: +d.windspeedmph }));
+  const maxG = Math.max(...chron.map(d => +(d.windgustmph ?? 0)));
+  html('windMaxGust', `${fmt(maxG)} <span class="sunit">mph</span>`);
+  drawChart('tempChart', 'tempXLabels', tPts, '#4fffb0', '°F');
+  drawChart('windChart', 'windXLabels', wPts, '#38bdf8', 'mph');
+}
+
+function drawChart(canvasId, labelsId, pts, color, unit) {
+  const canvas = el(canvasId);
+  if (!canvas || !pts || pts.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth;
+  const H = 120;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { top: 14, right: 8, bottom: 6, left: 38 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+  const vals = pts.map(p => p.v);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const rng = (max - min) || 1;
+  const xOf = i => pad.left + (i / (pts.length - 1)) * cW;
+  const yOf = v => pad.top + cH - ((v - min) / rng) * cH;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  [0, 0.5, 1].forEach(s => {
+    const y = yOf(min + s * rng);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke();
+  });
+
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
+  grad.addColorStop(0, color + '38'); grad.addColorStop(1, color + '00');
+
+  const buildPath = () => {
+    ctx.moveTo(xOf(0), yOf(pts[0].v));
+    for (let i = 1; i < pts.length; i++) {
+      const cpx = (xOf(i-1) + xOf(i)) / 2;
+      ctx.bezierCurveTo(cpx, yOf(pts[i-1].v), cpx, yOf(pts[i].v), xOf(i), yOf(pts[i].v));
+    }
+  };
+
+  ctx.beginPath(); buildPath();
+  ctx.lineTo(xOf(pts.length-1), pad.top + cH);
+  ctx.lineTo(xOf(0), pad.top + cH);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+  ctx.beginPath(); buildPath();
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '9px DM Mono, monospace';
+  ctx.textAlign = 'right';
+  [0, 0.5, 1].forEach(s => {
+    const v = min + s * rng;
+    ctx.fillText(fmt(v, 0), pad.left - 5, yOf(v) + 3);
+  });
+
+  const labelEl = el(labelsId);
+  if (labelEl) {
+    const idxs = [0, Math.floor(pts.length*.25), Math.floor(pts.length*.5),
+                  Math.floor(pts.length*.75), pts.length-1];
+    labelEl.innerHTML = idxs.map(i => {
+      const d = new Date(pts[i].t);
+      return `<span>${d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>`;
+    }).join('');
+  }
+}
+
+async function fetchData() {
+  showLoader(true); showError(false); spinBtn();
+  try {
+    const res = await fetch('/api/weather');
+    if (!res.ok) throw new Error('API error');
+    const { current, history } = await res.json();
+    if (current?.[0]?.lastData) populateCurrent(current[0].lastData);
+    if (history?.length) { lastHistory = history; populateHistory(history); }
+    timestamp();
+  } catch (e) {
+    console.error(e);
+    showError(true);
+  }
+  showLoader(false);
+}
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (lastHistory.length) populateHistory(lastHistory); }, 200);
+});
+
+fetchData();
+setInterval(fetchData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
