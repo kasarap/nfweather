@@ -78,6 +78,24 @@
 
   .page { padding: 0 14px 48px; }
 
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .chart-header .section-label {
+    margin-bottom: 0;
+  }
+  .chart-minmax {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    display: flex;
+    gap: 10px;
+  }
+  .chart-minmax .mx { color: #fb923c; }
+  .chart-minmax .mn { color: #38bdf8; }
+
   .section-label {
     font-size: 10px;
     font-weight: 700;
@@ -304,7 +322,7 @@
 
   <!-- TEMP CHART -->
   <div class="card">
-    <div class="section-label">Outdoor Temp · 8 hrs</div>
+    <div class="chart-header"><div class="section-label">Outdoor Temp · 8 hrs</div><div class="chart-minmax"><span class="mx">↑ <span id="tempMax">—</span>°</span><span class="mn">↓ <span id="tempMin">—</span>°</span></div></div>
     <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
     <div class="chart-x-labels" id="tempXLabels"></div>
   </div>
@@ -437,6 +455,10 @@ function populateHistory(data) {
   const tPts = chron.map(d => ({ t: d.dateutc, v: +d.tempf }));
   const wPts = chron.map(d => ({ t: d.dateutc, v: +d.windspeedmph }));
   const maxG = Math.max(...chron.map(d => +(d.windgustmph ?? 0)));
+  const tempMax = Math.max(...tPts.map(p => p.v));
+  const tempMin = Math.min(...tPts.map(p => p.v));
+  html('tempMax', fmt(tempMax, 1));
+  html('tempMin', fmt(tempMin, 1));
   html('windMaxGust', `${fmt(maxG)} <span class="sunit">mph</span>`);
   drawChart('tempChart', 'tempXLabels', tPts, '#4fffb0', '°F');
   drawChart('windChart', 'windXLabels', wPts, '#38bdf8', 'mph');
