@@ -396,13 +396,6 @@
     </div>
   </div>
 
-  <!-- PRESSURE CHART -->
-  <div class="card">
-    <div class="chart-header"><div class="section-label">Pressure · 8 hrs</div><div class="chart-minmax"><span class="mx">↑ <span id="pressMax">—</span></span><span class="mn">↓ <span id="pressMin">—</span></span></div></div>
-    <div class="chart-wrap"><canvas id="pressChart"></canvas></div>
-    <div class="chart-x-labels" id="pressXLabels"></div>
-  </div>
-
   <!-- RAINFALL -->
   <div class="card">
     <div class="section-label">Rainfall</div>
@@ -522,13 +515,7 @@ function populateHistory(data) {
   html('windMaxGust', `${fmt(maxG)} <span class="sunit">mph</span>`);
 
   if (pPts.length >= 2) {
-    const pressMax = Math.max(...pPts.map(p => p.v));
-    const pressMin = Math.min(...pPts.map(p => p.v));
-    html('pressMax', `${fmt(pressMax, 2)}`);
-    html('pressMin', `${fmt(pressMin, 2)}`);
-
-    // 3-hour trend: data is ~5 min intervals, so ~36 samples back = 3h
-    // Find the sample closest to 3h before the latest
+    // 3-hour trend: find the sample closest to 3h before the latest
     const latest = pPts[pPts.length - 1];
     const threeHrAgo = new Date(latest.t).getTime() - 3 * 60 * 60 * 1000;
     let refPt = pPts[0];
@@ -543,15 +530,13 @@ function populateHistory(data) {
     else { cls = 'falling'; arrow = '↓'; label = 'Falling'; }
     html('pressTrend',
       `${delta >= 0 ? '+' : ''}${fmt(delta, 2)}<span class="trend-badge ${cls}">${arrow} ${label}</span>`);
-
-    drawChart('pressChart', 'pressXLabels', pPts, '#c084fc', 'inHg', 2);
   }
 
   drawChart('tempChart', 'tempXLabels', tPts, '#4fffb0', '°F');
   drawChart('windChart', 'windXLabels', wPts, '#38bdf8', 'mph');
 }
 
-function drawChart(canvasId, labelsId, pts, color, unit, decimals = 0) {
+function drawChart(canvasId, labelsId, pts, color, unit) {
   const canvas = el(canvasId);
   if (!canvas || !pts || pts.length < 2) return;
   const dpr = window.devicePixelRatio || 1;
@@ -563,7 +548,7 @@ function drawChart(canvasId, labelsId, pts, color, unit, decimals = 0) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  const pad = { top: 14, right: 8, bottom: 6, left: decimals > 0 ? 48 : 38 };
+  const pad = { top: 14, right: 8, bottom: 6, left: 38 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
   const vals = pts.map(p => p.v);
@@ -603,7 +588,7 @@ function drawChart(canvasId, labelsId, pts, color, unit, decimals = 0) {
   ctx.textAlign = 'right';
   [0, 0.5, 1].forEach(s => {
     const v = min + s * rng;
-    ctx.fillText(fmt(v, decimals), pad.left - 5, yOf(v) + 3);
+    ctx.fillText(fmt(v, 0), pad.left - 5, yOf(v) + 3);
   });
 
   const labelEl = el(labelsId);
