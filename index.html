@@ -19,6 +19,7 @@
     --accent2: #38bdf8;
     --warn: #fb923c;
     --rain: #818cf8;
+    --pressure: #c084fc;
     --card-r: 20px;
   }
 
@@ -207,6 +208,21 @@
   .c-accent2 { color: var(--accent2) !important; }
   .c-warn    { color: var(--warn) !important; }
   .c-rain    { color: var(--rain) !important; }
+  .c-pressure { color: var(--pressure) !important; }
+
+  .trend-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 7px;
+    margin-left: 6px;
+    vertical-align: middle;
+    line-height: 1.4;
+  }
+  .trend-badge.rising  { background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.25); color: var(--warn); }
+  .trend-badge.falling { background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.25); color: var(--accent2); }
+  .trend-badge.steady  { background: rgba(107,114,128,0.12); border: 1px solid rgba(107,114,128,0.3);  color: var(--muted); }
 
   .dir-badge {
     display: inline-block;
@@ -357,6 +373,36 @@
     <div class="chart-x-labels" id="windXLabels"></div>
   </div>
 
+  <!-- PRESSURE -->
+  <div class="card">
+    <div class="section-label">Barometric Pressure</div>
+    <div class="stat-grid">
+      <div class="stat-item">
+        <div class="slabel">Relative</div>
+        <div class="sval c-pressure" id="pressRel">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Absolute</div>
+        <div class="sval" id="pressAbs">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">3h Change</div>
+        <div class="sval" id="pressTrend">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="slabel">Condition</div>
+        <div class="sval" id="pressCondition" style="font-size:16px;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRESSURE CHART -->
+  <div class="card">
+    <div class="chart-header"><div class="section-label">Pressure · 8 hrs</div><div class="chart-minmax"><span class="mx">↑ <span id="pressMax">—</span></span><span class="mn">↓ <span id="pressMin">—</span></span></div></div>
+    <div class="chart-wrap"><canvas id="pressChart"></canvas></div>
+    <div class="chart-x-labels" id="pressXLabels"></div>
+  </div>
+
   <!-- RAINFALL -->
   <div class="card">
     <div class="section-label">Rainfall</div>
@@ -446,6 +492,19 @@ function populateCurrent(d) {
   html('inHumidity', `${d.humidityin ?? '—'}<span class="sunit">%</span>`);
   html('inDew',      `${fmt(d.dewPointin)} <span class="sunit">°F</span>`);
   html('inFeels',    `${fmt(d.feelsLikein)} <span class="sunit">°F</span>`);
+  html('pressRel',   `${fmt(d.baromrelin,2)} <span class="sunit">inHg</span>`);
+  html('pressAbs',   `${fmt(d.baromabsin,2)} <span class="sunit">inHg</span>`);
+  html('pressCondition', pressureCondition(d.baromrelin));
+}
+
+function pressureCondition(p) {
+  if (p == null) return '—';
+  // Standard meteorological thresholds (inHg, sea-level relative)
+  if (p >= 30.20) return 'Very Dry';
+  if (p >= 30.00) return 'Fair';
+  if (p >= 29.80) return 'Variable';
+  if (p >= 29.60) return 'Rain Likely';
+  return 'Stormy';
 }
 
 let lastHistory = [];
@@ -454,17 +513,45 @@ function populateHistory(data) {
   const chron = [...data].reverse();
   const tPts = chron.map(d => ({ t: d.dateutc, v: +d.tempf }));
   const wPts = chron.map(d => ({ t: d.dateutc, v: +d.windspeedmph }));
+  const pPts = chron.map(d => ({ t: d.dateutc, v: +d.baromrelin })).filter(p => !isNaN(p.v));
   const maxG = Math.max(...chron.map(d => +(d.windgustmph ?? 0)));
   const tempMax = Math.max(...tPts.map(p => p.v));
   const tempMin = Math.min(...tPts.map(p => p.v));
   html('tempMax', fmt(tempMax, 1));
   html('tempMin', fmt(tempMin, 1));
   html('windMaxGust', `${fmt(maxG)} <span class="sunit">mph</span>`);
+
+  if (pPts.length >= 2) {
+    const pressMax = Math.max(...pPts.map(p => p.v));
+    const pressMin = Math.min(...pPts.map(p => p.v));
+    html('pressMax', `${fmt(pressMax, 2)}`);
+    html('pressMin', `${fmt(pressMin, 2)}`);
+
+    // 3-hour trend: data is ~5 min intervals, so ~36 samples back = 3h
+    // Find the sample closest to 3h before the latest
+    const latest = pPts[pPts.length - 1];
+    const threeHrAgo = new Date(latest.t).getTime() - 3 * 60 * 60 * 1000;
+    let refPt = pPts[0];
+    for (const p of pPts) {
+      if (new Date(p.t).getTime() >= threeHrAgo) { refPt = p; break; }
+    }
+    const delta = latest.v - refPt.v;
+    const absD = Math.abs(delta);
+    let cls, arrow, label;
+    if (absD < 0.02) { cls = 'steady';  arrow = '→'; label = 'Steady'; }
+    else if (delta > 0) { cls = 'rising';  arrow = '↑'; label = 'Rising'; }
+    else { cls = 'falling'; arrow = '↓'; label = 'Falling'; }
+    html('pressTrend',
+      `${delta >= 0 ? '+' : ''}${fmt(delta, 2)}<span class="trend-badge ${cls}">${arrow} ${label}</span>`);
+
+    drawChart('pressChart', 'pressXLabels', pPts, '#c084fc', 'inHg', 2);
+  }
+
   drawChart('tempChart', 'tempXLabels', tPts, '#4fffb0', '°F');
   drawChart('windChart', 'windXLabels', wPts, '#38bdf8', 'mph');
 }
 
-function drawChart(canvasId, labelsId, pts, color, unit) {
+function drawChart(canvasId, labelsId, pts, color, unit, decimals = 0) {
   const canvas = el(canvasId);
   if (!canvas || !pts || pts.length < 2) return;
   const dpr = window.devicePixelRatio || 1;
@@ -476,7 +563,7 @@ function drawChart(canvasId, labelsId, pts, color, unit) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  const pad = { top: 14, right: 8, bottom: 6, left: 38 };
+  const pad = { top: 14, right: 8, bottom: 6, left: decimals > 0 ? 48 : 38 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
   const vals = pts.map(p => p.v);
@@ -516,7 +603,7 @@ function drawChart(canvasId, labelsId, pts, color, unit) {
   ctx.textAlign = 'right';
   [0, 0.5, 1].forEach(s => {
     const v = min + s * rng;
-    ctx.fillText(fmt(v, 0), pad.left - 5, yOf(v) + 3);
+    ctx.fillText(fmt(v, decimals), pad.left - 5, yOf(v) + 3);
   });
 
   const labelEl = el(labelsId);
